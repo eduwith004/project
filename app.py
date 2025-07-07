@@ -65,9 +65,10 @@ st.markdown("실시간 환율을 기반으로 두 통화 간 금액을 서로 �
 cols = st.columns([2,1,1,1,2])
 
 with cols[0]:
-    left_value = st.number_input(
+    left_input = st.number_input(
         "금액 입력",
-        min_value=0.0, value=float(st.session_state.left_value),
+        min_value=0.0,
+        value=float(st.session_state.left_value),
         key="left_input"
     )
 with cols[1]:
@@ -78,17 +79,22 @@ with cols[2]:
         # swap currency and value
         st.session_state.left_currency, st.session_state.right_currency = st.session_state.right_currency, st.session_state.left_currency
         st.session_state.left_value, st.session_state.right_value = st.session_state.right_value, st.session_state.left_value
-        st.experimental_rerun()
+        st.rerun()
 
 with cols[3]:
     right_currency = st.selectbox("통화 ", curr_list, index=curr_list.index(st.session_state.right_currency), key="right_cur")
 
 with cols[4]:
-    right_value = st.number_input(
+    right_input = st.number_input(
         "금액 입력 ",
-        min_value=0.0, value=float(st.session_state.right_value),
+        min_value=0.0,
+        value=float(st.session_state.right_value),
         key="right_input"
     )
+
+# selectbox에서 선택된 통화로 session_state 갱신
+st.session_state.left_currency = left_currency
+st.session_state.right_currency = right_currency
 
 # 환율 데이터 불러오기 (왼쪽 통화를 기준)
 rates, update_time = get_rates(st.session_state.left_currency)
@@ -103,19 +109,14 @@ def convert(val, from_cur, to_cur, rates):
     except Exception:
         return 0
 
-# 어느 쪽이 수정됐는지 감지 (Streamlit 특성상 약간의 한계가 있으나 기본 동작 구현)
-if st.session_state.left_input != st.session_state.left_value:
-    # 왼쪽 입력 바뀜 -> 오른쪽 자동 계산
-    st.session_state.left_value = st.session_state.left_input
-    st.session_state.right_value = convert(st.session_state.left_input, st.session_state.left_currency, st.session_state.right_currency, rates)
-    st.session_state.right_input = st.session_state.right_value
-elif st.session_state.right_input != st.session_state.right_value:
-    # 오른쪽 입력 바뀜 -> 왼쪽 자동 계산
-    # 역변환: 오른쪽 기준으로 왼쪽 금액 구함
-    rates_rev, _ = get_rates(st.session_state.right_currency)
-    st.session_state.right_value = st.session_state.right_input
-    st.session_state.left_value = convert(st.session_state.right_input, st.session_state.right_currency, st.session_state.left_currency, rates_rev)
-    st.session_state.left_input = st.session_state.left_value
+# 입력값/통화 변경 감지 및 변환
+if left_input != st.session_state.left_value or left_currency != st.session_state.left_currency:
+    st.session_state.left_value = left_input
+    st.session_state.right_value = convert(left_input, left_currency, right_currency, rates)
+elif right_input != st.session_state.right_value or right_currency != st.session_state.right_currency:
+    rates_rev, _ = get_rates(right_currency)
+    st.session_state.right_value = right_input
+    st.session_state.left_value = convert(right_input, right_currency, left_currency, rates_rev)
 
 # 결과 출력
 st.markdown(f"""
